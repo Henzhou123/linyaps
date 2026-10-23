@@ -151,9 +151,21 @@ ContainerStatus checkContainerStatus(const std::string &id,
     std::array<char, 64> buf{};
     while (true) {
         auto n = ::read(lockedFd, buf.data(), buf.size());
-        if (n <= 0) {
+        if (n == -1) {
+            // A signal interrupts this read. Breaking out here leaves `content`
+            // empty or truncated, and the comparison below then reports a
+            // running container as not running.
+            if (errno == EINTR) {
+                continue;
+            }
+
             break;
         }
+
+        if (n == 0) {
+            break;
+        }
+
         content.append(buf.data(), static_cast<std::size_t>(n));
     }
 
