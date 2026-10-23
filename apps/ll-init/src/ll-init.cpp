@@ -407,8 +407,22 @@ bool SignalMonitor::dispatch(ChildProcess &child) noexcept
                 break;
             }
 
+            // A signal that is not in the signalfd mask still interrupts this
+            // read. Returning false here ends run_init(), i.e. PID 1 exits and
+            // takes the container with it, so retry instead.
+            if (errno == EINTR) {
+                continue;
+            }
+
             print_sys_error("failed to read from signalfd");
             return false;
+        }
+
+        // A short or zero-length read means there is nothing to decode; without
+        // this the zero-filled info would report signo 0 and the loop below
+        // would spin forever issuing kill(pid, 0).
+        if (ret == 0) {
+            break;
         }
 
         if (info.ssi_signo != SIGCHLD) {
