@@ -319,6 +319,14 @@ public:
             }
 
             if (ret == -1) {
+                // has_zombies() retries on EINTR; this loop must too, or a
+                // signal arriving at the wrong moment abandons the remaining
+                // children and leaves them as zombies for the rest of the
+                // container's life.
+                if (errno == EINTR) {
+                    continue;
+                }
+
                 print_sys_error("failed to wait for child");
                 break;
             }
